@@ -12,12 +12,16 @@ mkdir -p "$SHARE/vendor"
 cp -a "$ROOT/vendor/." "$SHARE/vendor/"
 # Unpack beside the installed script. The page imports these local files.
 python3 "$SHARE/rubik.py" --unpack
+python3 "$ROOT/icon.py" --install
 ln -sfn "$SHARE/rubik.py" "$BIN/rubik-cube"
 
 sed "s|^Exec=rubik-cube$|Exec=${BIN}/rubik-cube|" \
     "$ROOT/data/rubiks-cube.desktop" > "$APPS/rubiks-cube.desktop"
 chmod 0644 "$APPS/rubiks-cube.desktop"
 
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -f "${HOME}/.local/share/icons/hicolor" >/dev/null 2>&1 || true
+fi
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database "$APPS" >/dev/null 2>&1 || true
 fi

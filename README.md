@@ -17,7 +17,7 @@ rubik-cube
 
 The window position is saved as four numbers in
 `~/.config/rubik-cube/window.json`. Nothing else is stored. It does not
-start at login.
+start at login. The panel icon is a small cube, drawn by `icon.py`.
 
 ## How to turn it
 

@@ -113,6 +113,11 @@ def main() -> None:
 
     window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
     window.set_title("Rubik's Cube")
+    icon = Path.home() / ".local/share/icons/hicolor/256x256/apps/rubik-cube.png"
+    if icon.is_file():
+        window.set_icon_from_file(str(icon))
+    else:
+        window.set_icon_name("rubik-cube")
     window.set_decorated(False)
     window.set_app_paintable(True)
     window.set_resizable(True)
