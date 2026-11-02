@@ -3,3 +3,5 @@ __pycache__/
 *.pid
 *.log
 .cache/
+three.module.js
+three.core.js

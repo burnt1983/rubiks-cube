@@ -15,6 +15,23 @@ HTML = ROOT / "index.html"
 PID = Path.home() / ".cache" / "rubik-cube.pid"
 CFG = Path.home() / ".config" / "rubik-cube" / "window.json"
 WIDTH, HEIGHT = 760, 840
+THREE_FILES = ("three.module.js", "three.core.js")
+
+
+def ensure_three() -> None:
+    """Unpack the vendored Three.js files next to this script."""
+    import base64
+    import gzip
+
+    vendor = ROOT / "vendor"
+    for name in THREE_FILES:
+        dest = ROOT / name
+        if dest.is_file() and dest.stat().st_size > 10000:
+            continue
+        packed = vendor / f"{name}.gz.b64"
+        if not packed.is_file():
+            raise SystemExit(f"rubik-cube: missing {packed.name}")
+        dest.write_bytes(gzip.decompress(base64.b64decode(packed.read_text(encoding="ascii"))))
 
 
 def prefer_xwayland(max_wait_s: float = 25.0) -> str:
@@ -42,6 +59,10 @@ def prefer_xwayland(max_wait_s: float = 25.0) -> str:
     os.environ["GDK_BACKEND"] = "x11"
     return "x11"
 
+
+if __name__ == "__main__" and "--unpack" in sys.argv:
+    ensure_three()
+    raise SystemExit(0)
 
 prefer_xwayland()
 
@@ -80,6 +101,7 @@ def load_geo():
 
 
 def main() -> None:
+    ensure_three()
     other = read_pid()
     if other and other != os.getpid():
         os.kill(other, signal.SIGUSR1)

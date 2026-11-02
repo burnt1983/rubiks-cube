@@ -8,8 +8,10 @@ APPS="${HOME}/.local/share/applications"
 mkdir -p "$BIN" "$SHARE" "$APPS"
 install -m 0755 "$ROOT/rubik.py" "$SHARE/rubik.py"
 install -m 0644 "$ROOT/index.html" "$SHARE/index.html"
-install -m 0644 "$ROOT/three.module.js" "$SHARE/three.module.js"
-install -m 0644 "$ROOT/three.core.js" "$SHARE/three.core.js"
+mkdir -p "$SHARE/vendor"
+install -m 0644 "$ROOT/vendor/"*.gz.b64 "$SHARE/vendor/"
+# Unpack beside the installed script. The page imports these local files.
+python3 "$SHARE/rubik.py" --unpack
 ln -sfn "$SHARE/rubik.py" "$BIN/rubik-cube"
 
 sed "s|^Exec=rubik-cube$|Exec=${BIN}/rubik-cube|" \

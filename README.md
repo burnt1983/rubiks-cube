@@ -39,9 +39,9 @@ Opening it again while it is already open brings the same window forward.
 
 ## Credits
 
-The cube page uses [Three.js](https://github.com/mrdoob/three.js) r187,
-shipped here as `three.module.js` and `three.core.js`. Three.js is MIT.
-See [NOTICE](NOTICE).
+The cube page uses [Three.js](https://github.com/mrdoob/three.js) r187.
+The library is included in this repo and unpacked next to the page on
+install. It is not downloaded. Three.js is MIT. See [NOTICE](NOTICE).
 
 ## Licence
 
