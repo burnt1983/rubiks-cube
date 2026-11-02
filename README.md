@@ -28,8 +28,7 @@ start at login. The panel icon is a small cube, drawn by `icon.py`.
 | Double right-click a sticker | Turns that face. |
 | Hold the right button | Closes the cube. |
 | Escape | Closes the cube. |
-
-Opening it again while it is already open brings the same window forward.
+| Click the Rubik's Cube icon again | Closes the cube. Click it once more to open it. |
 
 ## Uninstall
 

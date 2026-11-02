@@ -108,8 +108,10 @@ def main() -> None:
         os.kill(other, signal.SIGUSR1)
         return
 
-    GLib.set_prgname("rubik-cube")
-    Gdk.set_program_class("rubik-cube")
+    # Keep this different from the desktop-file id so clicking the icon
+    # starts this script again instead of only focusing the open window.
+    GLib.set_prgname("rubik-cube-window")
+    Gdk.set_program_class("rubik-cube-window")
 
     window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
     window.set_title("Rubik's Cube")
@@ -283,12 +285,9 @@ def main() -> None:
         save_geo()
         return False
 
-    def present():
-        window.present()
-        return False
-
     def on_usr1(*_args):
-        GLib.idle_add(present)
+        # A second launch, from clicking the icon again, closes the cube.
+        GLib.idle_add(window.destroy)
 
     signal.signal(signal.SIGUSR1, on_usr1)
     signal.signal(signal.SIGTERM, lambda *_a: window.destroy())

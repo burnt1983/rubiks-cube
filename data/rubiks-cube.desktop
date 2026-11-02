@@ -2,11 +2,10 @@
 Version=1.0
 Type=Application
 Name=Rubik's Cube
-Comment=3D Rubik's cube. Click to turn. Drag to move the window. Double right-click a sticker to turn that face.
+Comment=3D Rubik's cube. Click this icon again to close it.
 Icon=rubik-cube
 Exec=rubik-cube
 Terminal=false
 Categories=Game;
 StartupNotify=false
-StartupWMClass=rubik-cube
 Keywords=rubik;cube;puzzle;3d;desktop;
