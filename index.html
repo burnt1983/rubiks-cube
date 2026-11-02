@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rubik's Cube</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: rgba(0, 0, 0, 0);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: transparent;
+    cursor: grab;
+    touch-action: none;
+  }
+  canvas.grabbing { cursor: grabbing; }
+  canvas.moving { cursor: move; }
+</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from "./three.module.js";
+
+const BODY = 0.96;
+const STICKER = 0.74;
+const LIFT = BODY / 2 + 0.012;
+const COLORS = {
+  x: { 1: "#b71234", "-1": "#ff5800" },
+  y: { 1: "#f4f4f4", "-1": "#ffd500" },
+  z: { 1: "#009b48", "-1": "#0046ad" },
+};
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 80);
+camera.position.set(0, 0, 12);
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  alpha: true,
+  premultipliedAlpha: false,
+  preserveDrawingBuffer: true,
+});
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = 0;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+document.body.prepend(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.38));
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8d8d96, 0.72));
+const key = new THREE.DirectionalLight(0xffffff, 2.15);
+key.position.set(5.5, 7.2, 6.2);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xd5e2ff, 0.72);
+fill.position.set(-6.2, 1.6, 3.4);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffe7c4, 0.95);
+rim.position.set(-1.5, 4.2, -6);
+scene.add(rim);
+
+const plastic = new THREE.MeshPhysicalMaterial({
+  color: 0x141418,
+  roughness: 0.38,
+  metalness: 0.06,
+  clearcoat: 0.62,
+  clearcoatRoughness: 0.28,
+});
+
+function shade(hex, factor) {
+  const n = parseInt(hex.slice(1), 16);
+  const channels = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((channel) => {
+    if (factor >= 1) return Math.round(channel + (255 - channel) * (factor - 1));
+    return Math.round(channel * factor);
+  });
+  return `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+const stickerMaterials = new Map();
+function stickerMaterial(hex) {
+  const cached = stickerMaterials.get(hex);
+  if (cached) return cached;
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const g = canvas.getContext("2d");
+  roundRect(g, 6, 6, size - 12, size - 12, 42);
+  const gradient = g.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, shade(hex, 1.16));
+  gradient.addColorStop(0.45, hex);
+  gradient.addColorStop(1, shade(hex, 0.84));
+  g.fillStyle = gradient;
+  g.fill();
+  g.fillStyle = "rgba(255,255,255,0.38)";
+  roundRect(g, 40, 30, 108, 34, 17);
+  g.fill();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const material = new THREE.MeshPhysicalMaterial({
+    map: texture,
+    color: 0xffffff,
+    roughness: 0.36,
+    metalness: 0,
+    clearcoat: 0.45,
+    clearcoatRoughness: 0.24,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+  stickerMaterials.set(hex, material);
+  return material;
+}
+
+const cubeRoot = new THREE.Group();
+scene.add(cubeRoot);
+cubeRoot.quaternion.setFromEuler(new THREE.Euler(-0.36, 0.58, 0, "YXZ"));
+
+const core = new THREE.Mesh(new THREE.BoxGeometry(2.36, 2.36, 2.36), plastic);
+cubeRoot.add(core);
+
+const cubies = [];
+const stickerGeo = new THREE.PlaneGeometry(STICKER, STICKER);
+const bodyGeo = new THREE.BoxGeometry(BODY, BODY, BODY);
+
+function addSticker(cubie, axis, sign, hex) {
+  const sticker = new THREE.Mesh(stickerGeo, stickerMaterial(hex));
+  sticker.position[axis] = sign * LIFT;
+  if (axis === "x") sticker.rotation.y = sign > 0 ? Math.PI / 2 : -Math.PI / 2;
+  if (axis === "y") sticker.rotation.x = sign > 0 ? -Math.PI / 2 : Math.PI / 2;
+  if (axis === "z" && sign < 0) sticker.rotation.y = Math.PI;
+  cubie.add(sticker);
+}
+
+for (let x = -1; x <= 1; x += 1) {
+  for (let y = -1; y <= 1; y += 1) {
+    for (let z = -1; z <= 1; z += 1) {
+      if (x === 0 && y === 0 && z === 0) continue;
+      const cubie = new THREE.Group();
+      cubie.position.set(x, y, z);
+      cubie.add(new THREE.Mesh(bodyGeo, plastic));
+      if (x !== 0) addSticker(cubie, "x", x, COLORS.x[x]);
+      if (y !== 0) addSticker(cubie, "y", y, COLORS.y[y]);
+      if (z !== 0) addSticker(cubie, "z", z, COLORS.z[z]);
+      cubeRoot.add(cubie);
+      cubies.push(cubie);
+    }
+  }
+}
+
+const jobs = [];
+let running = false;
+
+function ease(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function enqueue(job) {
+  if (jobs.length > 8) return;
+  jobs.push(job);
+  runNext();
+}
+
+function runNext() {
+  if (running || jobs.length === 0) return;
+  running = true;
+  const job = jobs.shift();
+  job(() => {
+    running = false;
+    runNext();
+  });
+}
+
+function animateQuat(obj, dest, ms, done) {
+  const start = obj.quaternion.clone();
+  const t0 = performance.now();
+  function step(now) {
+    const t = Math.min(1, (now - t0) / ms);
+    obj.quaternion.slerpQuaternions(start, dest, ease(t));
+    if (t < 1) requestAnimationFrame(step);
+    else {
+      obj.quaternion.copy(dest);
+      done();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+const axisX = new THREE.Vector3(1, 0, 0);
+const axisY = new THREE.Vector3(0, 1, 0);
+const scratchQ = new THREE.Quaternion();
+
+function turnCube(dx, dy) {
+  enqueue((done) => {
+    const dest = cubeRoot.quaternion.clone();
+    if (dx) {
+      scratchQ.setFromAxisAngle(axisY, -dx * Math.PI / 2);
+      dest.premultiply(scratchQ);
+    }
+    if (dy) {
+      scratchQ.setFromAxisAngle(axisX, dy * Math.PI / 2);
+      dest.premultiply(scratchQ);
+    }
+    animateQuat(cubeRoot, dest, 380, done);
+  });
+}
+
+function snapCubie(obj) {
+  obj.updateMatrix();
+  const m = obj.matrix.clone();
+  const e = m.elements;
+  for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) {
+    const v = e[i];
+    e[i] = Math.abs(v) < 0.5 ? 0 : (v > 0 ? 1 : -1);
+  }
+  obj.quaternion.setFromRotationMatrix(m);
+  obj.position.set(Math.round(obj.position.x), Math.round(obj.position.y), Math.round(obj.position.z));
+}
+
+function turnLayer(axis, layer, dir) {
+  enqueue((done) => {
+    const pivot = new THREE.Group();
+    cubeRoot.add(pivot);
+    const moving = cubies.filter((cubie) => Math.round(cubie.position[axis]) === layer);
+    for (const cubie of moving) pivot.attach(cubie);
+    const end = dir * Math.PI / 2;
+    const t0 = performance.now();
+    const ms = 240;
+    function step(now) {
+      const t = Math.min(1, (now - t0) / ms);
+      pivot.rotation[axis] = end * ease(t);
+      if (t < 1) {
+        requestAnimationFrame(step);
+        return;
+      }
+      pivot.rotation[axis] = end;
+      pivot.updateMatrixWorld(true);
+      for (const cubie of moving) {
+        cubeRoot.attach(cubie);
+        snapCubie(cubie);
+      }
+      cubeRoot.remove(pivot);
+      done();
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const worldNormal = new THREE.Vector3();
+const normalQuat = new THREE.Quaternion();
+
+// Corner of a cubie, plus air so a turned cube stays inside the window.
+const FIT_RADIUS = 2.45;
+
+function resize() {
+  const w = Math.max(1, window.innerWidth);
+  const h = Math.max(1, window.innerHeight);
+  camera.aspect = w / h;
+  const gutter = 96;
+  const usableW = Math.max(160, w - gutter * 2);
+  const usableH = Math.max(160, h - gutter * 2);
+  const tan = Math.tan((camera.fov * Math.PI) / 180 / 2);
+  const distW = FIT_RADIUS / (tan * camera.aspect * (usableW / w));
+  const distH = FIT_RADIUS / (tan * (usableH / h));
+  camera.position.z = Math.max(distW, distH) * 1.22;
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(w, h, false);
+}
+window.addEventListener("resize", resize);
+resize();
+
+function pick(clientX, clientY) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  cubeRoot.updateMatrixWorld(true);
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(cubeRoot.children, true);
+  const hit = hits.find((item) => item.object !== core) || null;
+  return { hit, onCube: hits.length > 0 };
+}
+
+function faceNormal(hit) {
+  if (hit.object.geometry && hit.object.geometry.type === "PlaneGeometry") {
+    hit.object.getWorldQuaternion(normalQuat);
+    worldNormal.set(0, 0, 1).applyQuaternion(normalQuat);
+  } else if (hit.face) {
+    worldNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
+  } else {
+    return null;
+  }
+  cubeRoot.getWorldQuaternion(normalQuat).invert();
+  worldNormal.applyQuaternion(normalQuat);
+  return worldNormal;
+}
+
+function dominant(v) {
+  const ax = Math.abs(v.x);
+  const ay = Math.abs(v.y);
+  const az = Math.abs(v.z);
+  if (ax >= ay && ax >= az) return ["x", v.x >= 0 ? 1 : -1];
+  if (ay >= az) return ["y", v.y >= 0 ? 1 : -1];
+  return ["z", v.z >= 0 ? 1 : -1];
+}
+
+function host(text) {
+  window.__quit = text;
+  const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.rubik;
+  if (handler) handler.postMessage(text);
+}
+
+const CLICK_SLOP = 6;
+const RIGHT_HOLD_MS = 560;
+const RIGHT_DOUBLE_MS = 420;
+
+let drag = null;
+let rightHoldTimer = null;
+let lastRightUp = 0;
+const canvas = renderer.domElement;
+
+function clearRightHold() {
+  if (rightHoldTimer !== null) {
+    clearTimeout(rightHoldTimer);
+    rightHoldTimer = null;
+  }
+}
+
+function turnFaceAt(hit) {
+  if (!hit) return;
+  const normal = faceNormal(hit);
+  if (!normal) return;
+  const [axis, sign] = dominant(normal);
+  turnLayer(axis, sign, -sign);
+}
+
+canvas.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0 && event.button !== 2) return;
+  canvas.setPointerCapture(event.pointerId);
+  const picked = pick(event.clientX, event.clientY);
+  drag = {
+    id: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    lastX: event.clientX,
+    lastY: event.clientY,
+    button: event.button,
+    moved: false,
+    hit: picked.hit,
+  };
+  canvas.classList.remove("grabbing", "moving");
+  if (event.button === 2) {
+    clearRightHold();
+    rightHoldTimer = setTimeout(() => {
+      rightHoldTimer = null;
+      host("quit");
+    }, RIGHT_HOLD_MS);
+  }
+});
+
+canvas.addEventListener("pointermove", (event) => {
+  if (!drag || event.pointerId !== drag.id) return;
+  drag.lastX = event.clientX;
+  drag.lastY = event.clientY;
+  if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > CLICK_SLOP) {
+    drag.moved = true;
+    if (drag.button === 0) canvas.classList.add("moving");
+    if (drag.button === 2) clearRightHold();
+  }
+});
+
+function finishDrag(event) {
+  if (!drag || event.pointerId !== drag.id) return;
+  const info = drag;
+  drag = null;
+  canvas.classList.remove("grabbing", "moving");
+  if (info.button === 0) {
+    if (!info.moved) {
+      const dx = event.clientX - window.innerWidth / 2;
+      const dy = event.clientY - window.innerHeight / 2;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        turnCube(0, dy < 0 ? 1 : -1);
+      } else {
+        turnCube(dx < 0 ? -1 : 1, 0);
+      }
+    }
+    return;
+  }
+  if (info.button !== 2) return;
+  clearRightHold();
+  if (info.moved) return;
+  const now = performance.now();
+  if (now - lastRightUp <= RIGHT_DOUBLE_MS) {
+    lastRightUp = 0;
+    turnFaceAt(info.hit);
+    return;
+  }
+  lastRightUp = now;
+}
+
+canvas.addEventListener("pointerup", finishDrag);
+canvas.addEventListener("pointercancel", (event) => {
+  clearRightHold();
+  finishDrag(event);
+});
+canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") host("quit");
+});
+
+function grid() {
+  return cubies.map((cubie) => ({
+    x: Math.round(cubie.position.x),
+    y: Math.round(cubie.position.y),
+    z: Math.round(cubie.position.z),
+  }));
+}
+
+window.__rubik = {
+  turnCube,
+  turnLayer,
+  grid,
+  idle: () => !running && jobs.length === 0,
+  facing() {
+    const v = new THREE.Vector3(0, 0, 1).applyQuaternion(cubeRoot.quaternion);
+    return [v.x, v.y, v.z];
+  },
+};
+
+renderer.setAnimationLoop(() => {
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
