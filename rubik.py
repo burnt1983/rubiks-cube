@@ -28,10 +28,11 @@ def ensure_three() -> None:
         dest = ROOT / name
         if dest.is_file() and dest.stat().st_size > 10000:
             continue
-        packed = vendor / f"{name}.gz.b64"
-        if not packed.is_file():
-            raise SystemExit(f"rubik-cube: missing {packed.name}")
-        dest.write_bytes(gzip.decompress(base64.b64decode(packed.read_text(encoding="ascii"))))
+        pieces = sorted(vendor.glob(f"{name}.gz.b64*"))
+        if not pieces:
+            raise SystemExit(f"rubik-cube: missing packed {name}")
+        packed = "".join(piece.read_text(encoding="ascii") for piece in pieces)
+        dest.write_bytes(gzip.decompress(base64.b64decode(packed)))
 
 
 def prefer_xwayland(max_wait_s: float = 25.0) -> str:

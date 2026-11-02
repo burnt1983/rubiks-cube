@@ -9,7 +9,7 @@ mkdir -p "$BIN" "$SHARE" "$APPS"
 install -m 0755 "$ROOT/rubik.py" "$SHARE/rubik.py"
 install -m 0644 "$ROOT/index.html" "$SHARE/index.html"
 mkdir -p "$SHARE/vendor"
-install -m 0644 "$ROOT/vendor/"*.gz.b64 "$SHARE/vendor/"
+cp -a "$ROOT/vendor/." "$SHARE/vendor/"
 # Unpack beside the installed script. The page imports these local files.
 python3 "$SHARE/rubik.py" --unpack
 ln -sfn "$SHARE/rubik.py" "$BIN/rubik-cube"
