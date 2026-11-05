@@ -2,7 +2,7 @@
 Version=1.0
 Type=Application
 Name=Rubik's Cube
-Comment=3D Rubik's cube. Click this icon again to close it.
+Comment=3D Rubik's cube. Click this icon again to close it. Double right-click a sticker to turn that face. Shift and double right-click turns that face and the middle layer.
 Icon=rubik-cube
 Exec=rubik-cube
 Terminal=false

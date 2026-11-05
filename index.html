@@ -239,10 +239,13 @@ function snapCubie(obj) {
 }
 
 function turnLayer(axis, layer, dir) {
+  // One index turns that layer. Two indices turn those layers on one pivot,
+  // which is how a face and the middle layer move together.
+  const layers = Array.isArray(layer) ? layer : [layer];
   enqueue((done) => {
     const pivot = new THREE.Group();
     cubeRoot.add(pivot);
-    const moving = cubies.filter((cubie) => Math.round(cubie.position[axis]) === layer);
+    const moving = cubies.filter((cubie) => layers.includes(Math.round(cubie.position[axis])));
     for (const cubie of moving) pivot.attach(cubie);
     const end = dir * Math.PI / 2;
     const t0 = performance.now();
@@ -340,6 +343,7 @@ const RIGHT_DOUBLE_MS = 420;
 let drag = null;
 let rightHoldTimer = null;
 let lastRightUp = 0;
+let lastRightShift = false;
 const canvas = renderer.domElement;
 
 function clearRightHold() {
@@ -349,12 +353,13 @@ function clearRightHold() {
   }
 }
 
-function turnFaceAt(hit) {
+function turnFaceAt(hit, wide) {
   if (!hit) return;
   const normal = faceNormal(hit);
   if (!normal) return;
   const [axis, sign] = dominant(normal);
-  turnLayer(axis, sign, -sign);
+  // sign is the clicked end. A wide turn takes that end and the middle layer.
+  turnLayer(axis, wide ? [sign, 0] : sign, -sign);
 }
 
 canvas.addEventListener("pointerdown", (event) => {
@@ -369,6 +374,7 @@ canvas.addEventListener("pointerdown", (event) => {
     lastY: event.clientY,
     button: event.button,
     moved: false,
+    shift: event.shiftKey,
     hit: picked.hit,
   };
   canvas.classList.remove("grabbing", "moving");
@@ -414,11 +420,14 @@ function finishDrag(event) {
   if (info.moved) return;
   const now = performance.now();
   if (now - lastRightUp <= RIGHT_DOUBLE_MS) {
+    const wide = event.shiftKey || info.shift || lastRightShift;
     lastRightUp = 0;
-    turnFaceAt(info.hit);
+    lastRightShift = false;
+    turnFaceAt(info.hit, wide);
     return;
   }
   lastRightUp = now;
+  lastRightShift = event.shiftKey || info.shift;
 }
 
 canvas.addEventListener("pointerup", finishDrag);

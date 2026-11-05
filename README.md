@@ -26,6 +26,7 @@ start at login. The panel icon is a small cube, drawn by `icon.py`.
 | Click | Turns the whole cube one quarter turn. Click above or below the middle to tip it, or left or right of the middle to yaw it. |
 | Drag | Moves the window. |
 | Double right-click a sticker | Turns that face. |
+| Shift + double right-click a sticker | Turns that face and the middle layer together. The face you click is the end that moves: top or bottom, left or right, front or back. |
 | Hold the right button | Closes the cube. |
 | Escape | Closes the cube. |
 | Click the Rubik's Cube icon again | Closes the cube. Click it once more to open it. |
